@@ -7,7 +7,7 @@ made_leiden_graph = '''
     {
         ROUTE_SEGMENT: {
             orientation: 'UNDIRECTED',
-            properties: 'length'
+            properties: 'duration'
         }
     }
 )
@@ -17,7 +17,7 @@ community_leiden_graph = '''
         CALL gds.leiden.stream(
             $name,
             {
-                relationshipWeightProperty: 'length'
+                relationshipWeightProperty: 'duration'
             }
         )
         YIELD nodeId, communityId
@@ -47,4 +47,4 @@ def leiden_cluster(graph_name):
 
     conn.query(write_leiden_graph, {"name": graph_name})
 
-leiden_cluster("leidenAlgoritmGraph")
+leiden_cluster("leidenAlgoritmGraph4")
