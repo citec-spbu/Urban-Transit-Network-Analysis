@@ -47,4 +47,4 @@ def leiden_cluster(graph_name):
 
     conn.query(write_leiden_graph, {"name": graph_name})
 
-leiden_cluster("leidenAlgoritmGraph4")
+leiden_cluster("leidenAlgoritmGraph")

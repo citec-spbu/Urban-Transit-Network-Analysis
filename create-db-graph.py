@@ -1,6 +1,6 @@
 import osmnx as ox
 import neo4j
-import SaintPetersburgParseData as SaintParser
+import ParseData
 import pandas as pd
 
 constraint_query = "CREATE CONSTRAINT IF NOT EXISTS FOR (i:Intersection) REQUIRE i.osmid IS UNIQUE"
@@ -50,7 +50,8 @@ node_query_bus = '''
     MERGE (s:Stop {name: row.name})
         SET s.location = 
          point({latitude: row.yCoordinate, longitude: row.xCoordinate }),
-            s.roteList = row.roteList
+            s.roteList = row.roteList,
+            s.isCoordinateApproximate = row.isCoordinateApproximate
     RETURN COUNT(*) AS total
 '''
 
@@ -110,8 +111,10 @@ def create_graph_db(city_name):
     with driver.session() as session:
         session.execute_write(insert_data, rels_query, gdf_relationships.drop(columns=["geometry"]))
 
-def create_saint_petersubrg_bus_graph_db():
-    (nodes, relationships) = SaintParser.get_saint_petersburg_bus_graph()
+def create_saint_petersubrg_bus_graph_db(city_name):
+    (nodes, relationships) = ParseData.get_bus_graph(city_name)
+    if nodes is None and relationships is None:
+        return
 
     new_node = list(nodes.values())
 
@@ -147,4 +150,4 @@ def create_graph_db(city_name):
         session.execute_write(insert_data, rels_query, gdf_relationships.drop(columns=["geometry"]))
 
 if __name__ == "__main__":
-    create_saint_petersubrg_bus_graph_db()
+    create_saint_petersubrg_bus_graph_db("Керчь")

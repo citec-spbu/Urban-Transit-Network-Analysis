@@ -48,4 +48,4 @@ def louvain_clustering(graph_name):
 
     conn.query(write_louvain_graph, {"name": graph_name})
 
-louvain_clustering("louvainAlgoritmGraph4")
+louvain_clustering("louvainAlgoritmGraph")
