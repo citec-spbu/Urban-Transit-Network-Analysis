@@ -111,7 +111,7 @@ def create_graph_db(city_name):
     with driver.session() as session:
         session.execute_write(insert_data, rels_query, gdf_relationships.drop(columns=["geometry"]))
 
-def create_saint_petersubrg_bus_graph_db(city_name):
+def create_bus_graph_db(city_name):
     (nodes, relationships) = ParseData.get_bus_graph(city_name)
     if nodes is None and relationships is None:
         return
@@ -150,4 +150,4 @@ def create_graph_db(city_name):
         session.execute_write(insert_data, rels_query, gdf_relationships.drop(columns=["geometry"]))
 
 if __name__ == "__main__":
-    create_saint_petersubrg_bus_graph_db("Керчь")
+    create_bus_graph_db("Керчь")
