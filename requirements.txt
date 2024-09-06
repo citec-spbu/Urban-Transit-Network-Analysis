@@ -1,0 +1,5 @@
+osmnx==1.9.4
+requests==2.32.3
+beautifulsoup4==4.12.3
+neo4j==5.23.1
+pandas==2.2.2
