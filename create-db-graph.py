@@ -69,11 +69,13 @@ NEO4J_URI = "bolt://localhost:7687"
 NEO4J_USER = "neo4j"
 NEO4J_PASSWORD = "123456789"
 
+
 def create_constraints(tx):
-    result = tx.run(constraint_query)
-    result = tx.run(rel_index_query)
-    result = tx.run(address_constraint_query)
-    result = tx.run(point_index_query)
+    tx.run(constraint_query)
+    tx.run(rel_index_query)
+    tx.run(address_constraint_query)
+    tx.run(point_index_query)
+
 
 def insert_data(tx, query, rows, batch_size=10000):
     total = 0
@@ -82,34 +84,14 @@ def insert_data(tx, query, rows, batch_size=10000):
     df = pd.DataFrame(rows)
 
     while batch * batch_size < len(df):
-        current_batch = df.iloc[batch*batch_size:(batch+1)*batch_size]
+        current_batch = df.iloc[batch * batch_size:(batch + 1) * batch_size]
         batch_data = current_batch.to_dict('records')
-        data = {'rows': batch_data}
         results = tx.run(query, parameters={'rows': batch_data}).data()
         print(results)
         total += results[0]['total']
         batch += 1
     return total
 
-def create_graph_db(city_name):
-    g = ox.graph_from_place(city_name, simplify=True, retain_all=True, network_type="drive")
-
-    gdf_nodes, gdf_relationships = ox.graph_to_gdfs(g)
-    gdf_nodes.reset_index(inplace=True)
-    gdf_relationships.reset_index(inplace=True)
-    gdf_nodes["geometry_wkt"] = gdf_nodes["geometry"].apply(lambda x: x.wkt)
-    gdf_relationships["geometry_wkt"] = gdf_relationships["geometry"].apply(lambda x: x.wkt)
-
-    driver = neo4j.GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-
-    driver.verify_connectivity()
-
-    with driver.session() as session:
-        session.execute_write(create_constraints)
-        session.execute_write(insert_data, node_query, gdf_nodes.drop(columns=["geometry"]))
-
-    with driver.session() as session:
-        session.execute_write(insert_data, rels_query, gdf_relationships.drop(columns=["geometry"]))
 
 def create_bus_graph_db(city_name):
     (nodes, relationships) = ParseData.get_bus_graph(city_name)
@@ -129,6 +111,7 @@ def create_bus_graph_db(city_name):
 
         session.execute_write(insert_data, rels_query_bus, relationships)
 
+
 def create_graph_db(city_name):
     g = ox.graph_from_place(city_name, simplify=True, retain_all=True, network_type="drive")
 
@@ -148,6 +131,7 @@ def create_graph_db(city_name):
 
     with driver.session() as session:
         session.execute_write(insert_data, rels_query, gdf_relationships.drop(columns=["geometry"]))
+
 
 if __name__ == "__main__":
     create_bus_graph_db("Керчь")

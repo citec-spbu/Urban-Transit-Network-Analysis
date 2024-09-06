@@ -11,6 +11,7 @@ all_bus_route = "bus/"
 city_avg_x_coordinate = 60
 city_avg_y_coordinate = 30
 
+
 def get_stop_coordinates(url):
     full_url = site_url + url + map_url
     response = requests.get(full_url)
@@ -41,18 +42,17 @@ def get_stop_times(url):
 
     stop_times = []
     for stop_div in soup.find_all('div', class_='bus-stop'):
-        parsed_start_time = None
         name = stop_div.find('a').text.strip()
         start_time = stop_div.find_next_sibling('div', class_='col-xs-12').find('span')
         if start_time is not None:
             parsed_start_time = start_time.text.strip()
-            if parsed_start_time[len(parsed_start_time)-1] == 'K':
+            if parsed_start_time[len(parsed_start_time) - 1] == 'K':
                 parsed_start_time = parsed_start_time[:-1]
         else:
-            return (None, False)
+            return None, False
         clean_name = re.sub(r"\d+\) ", "", name)
-        stop_times.append({"stopName": clean_name, "startTime" : parsed_start_time})
-    return (stop_times, True)
+        stop_times.append({"stopName": clean_name, "startTime": parsed_start_time})
+    return stop_times, True
 
 
 def extract_coordinates(script_text):
@@ -64,6 +64,7 @@ def extract_coordinates(script_text):
         coordinates[name] = [match[1], match[2]]
 
     return coordinates
+
 
 def get_all_route_url(city_url):
     full_url = site_url + city_url + all_bus_route
@@ -82,10 +83,11 @@ def get_all_route_url(city_url):
         bus_list.append([bus_number, bus_route, href_link])
     return bus_list
 
-def calculate_duration(startStop, endStop):
-    startHour, startMinute = map(int, startStop.split(':'))
-    endHour, endMinute = map(int, endStop.split(':'))
-    return (endHour*60 + endMinute) - (startHour*60 + startMinute)
+
+def calculate_duration(start_stop, end_stop):
+    start_hour, start_minute = map(int, start_stop.split(':'))
+    end_hour, end_minute = map(int, end_stop.split(':'))
+    return (end_hour * 60 + end_minute) - (start_hour * 60 + start_minute)
 
 
 def get_bus_graph(city_name):
@@ -93,26 +95,25 @@ def get_bus_graph(city_name):
     city_url = cities_url.get(city_name)
     if city_url is None:
         print('No such city in parsed data')
-        return (None, None)
+        return None, None
     routes_path = get_all_route_url(city_url)
     nodes = {}
     relationships = []
-    counter = 0
     for rote in routes_path:
         url = rote[2]
-        (stop_times_and_sequaence, sucsses_parse) = get_stop_times(url)
-        if sucsses_parse is False:
+        (stop_times_and_sequence, successes_parse) = get_stop_times(url)
+        if successes_parse is False:
             continue
         coordinates = get_stop_coordinates(url)
         last_x = float(city_avg_x_coordinate)
         last_y = float(city_avg_y_coordinate)
-        for stop in stop_times_and_sequaence:
+        for stop in stop_times_and_sequence:
             node = stop["stopName"]
             if nodes.get(node) is not None:
                 nodes[node]["roteList"].append(rote[0])
             else:
                 coordinate = coordinates.get(node)
-                if(coordinate is None):
+                if coordinate is None:
                     nodes[node] = {
                         "name": node,
                         "roteList": [rote[0]],
@@ -130,20 +131,22 @@ def get_bus_graph(city_name):
                     }
                     last_x = float(coordinates[node][0])
                     last_y = float(coordinates[node][1])
-        for ind in range(0, len(stop_times_and_sequaence)-1):
-            if nodes[stop_times_and_sequaence[ind]["stopName"]] is not None and nodes[stop_times_and_sequaence[ind+1]["stopName"]]:
-                startStop = nodes[stop_times_and_sequaence[ind]["stopName"]]
-                endStop = nodes[stop_times_and_sequaence[ind+1]["stopName"]]
-                relationships.append({"startStop": startStop["name"],
-                                      "endStop": endStop["name"],
-                                      "name": startStop["name"] + " -> " + endStop["name"],
-                                      "duration": calculate_duration(stop_times_and_sequaence[ind]["startTime"],
-                                                                     stop_times_and_sequaence[ind+1]["startTime"]
+        for ind in range(0, len(stop_times_and_sequence) - 1):
+            if nodes[stop_times_and_sequence[ind]["stopName"]] is not None and nodes[
+                stop_times_and_sequence[ind + 1]["stopName"]]:
+                start_stop = nodes[stop_times_and_sequence[ind]["stopName"]]
+                end_stop = nodes[stop_times_and_sequence[ind + 1]["stopName"]]
+                relationships.append({"start_stop": start_stop["name"],
+                                      "end_stop": end_stop["name"],
+                                      "name": start_stop["name"] + " -> " + end_stop["name"],
+                                      "duration": calculate_duration(stop_times_and_sequence[ind]["startTime"],
+                                                                     stop_times_and_sequence[ind + 1]["startTime"]
                                                                      )
                                       })
         print(url)
         time.sleep(2)
-    return (nodes,relationships)
+    return nodes, relationships
+
 
 def parse_all_city_urls():
     url = "https://kudikina.ru/"

@@ -1,4 +1,4 @@
-import Neo4jConnection as con
+import Neo4jConnection as ConnectionFactory
 
 made_leiden_graph = '''
     CALL gds.graph.project(
@@ -35,16 +35,15 @@ write_leiden_graph = '''
         YIELD communityCount, modularity, modularities
     '''
 
-NEO4J_URI = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "123456789"
-conn = con.Neo4jConnection(uri=NEO4J_URI, user=NEO4J_USER, pwd=NEO4J_PASSWORD)
+connection = ConnectionFactory.Neo4jConnection()
+
 
 def leiden_cluster(graph_name):
-    conn.query(made_leiden_graph, {"name": graph_name})
+    params = {"name": graph_name}
+    connection.query(made_leiden_graph, params)
+    connection.query(community_leiden_graph, params)
+    connection.query(write_leiden_graph, params)
 
-    conn.query(community_leiden_graph, {"name": graph_name})
 
-    conn.query(write_leiden_graph, {"name": graph_name})
-
-leiden_cluster("leidenAlgoritmGraph")
+if __name__ == "__main__":
+    leiden_cluster("leidenAlgorithmGraph")

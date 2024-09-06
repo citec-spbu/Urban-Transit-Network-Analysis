@@ -1,4 +1,4 @@
-import Neo4jConnection as con
+import Neo4jConnection as ConnectionFactory
 
 made_louvain_graph = '''
     CALL gds.graph.project(
@@ -35,17 +35,15 @@ write_louvain_graph = '''
         YIELD communityCount, modularity, modularities
     '''
 
-NEO4J_URI = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "123456789"
+connection = ConnectionFactory.Neo4jConnection()
 
-conn = con.Neo4jConnection(uri=NEO4J_URI, user=NEO4J_USER, pwd=NEO4J_PASSWORD)
 
 def louvain_clustering(graph_name):
-    conn.query(made_louvain_graph, {"name": graph_name})
+    params = {"name": graph_name}
+    connection.query(made_louvain_graph, params)
+    connection.query(community_louvain_graph, params)
+    connection.query(write_louvain_graph, params)
 
-    conn.query(community_louvain_graph, {"name": graph_name})
 
-    conn.query(write_louvain_graph, {"name": graph_name})
-
-louvain_clustering("louvainAlgoritmGraph")
+if __name__ == "__main__":
+    louvain_clustering("louvainAlgorithmGraph")
