@@ -1,8 +1,8 @@
+import re
 import time
 
 import requests
 from bs4 import BeautifulSoup
-import re
 
 site_url = "https://kudikina.ru"
 map_url = "/map"
@@ -43,15 +43,15 @@ def get_stop_times(url):
     stop_times = []
     for stop_div in soup.find_all('div', class_='bus-stop'):
         name = stop_div.find('a').text.strip()
-        start_time = stop_div.find_next_sibling('div', class_='col-xs-12').find('span')
-        if start_time is not None:
-            parsed_start_time = start_time.text.strip()
-            if parsed_start_time[len(parsed_start_time) - 1] == 'K':
-                parsed_start_time = parsed_start_time[:-1]
+        time_point = stop_div.find_next_sibling('div', class_='col-xs-12').find('span')
+        if time_point is not None:
+            parsed_time_point = time_point.text.strip()
+            if parsed_time_point[len(parsed_time_point) - 1] == 'K':
+                parsed_time_point = parsed_time_point[:-1]
         else:
             return None, False
         clean_name = re.sub(r"\d+\) ", "", name)
-        stop_times.append({"stopName": clean_name, "startTime": parsed_start_time})
+        stop_times.append({"stopName": clean_name, "timePoint": parsed_time_point})
     return stop_times, True
 
 
@@ -104,47 +104,63 @@ def get_bus_graph(city_name):
         (stop_times_and_sequence, successes_parse) = get_stop_times(url)
         if successes_parse is False:
             continue
+
         coordinates = get_stop_coordinates(url)
         last_x = float(city_avg_x_coordinate)
         last_y = float(city_avg_y_coordinate)
+        previous_bus_stop = None
+        previous_time_point = None
         for stop in stop_times_and_sequence:
-            node = stop["stopName"]
-            if nodes.get(node) is not None:
-                nodes[node]["roteList"].append(rote[0])
+            is_new_stop = True
+            bus_stop_name = stop["stopName"]
+            time_point = stop["timePoint"]
+
+            coordinate = coordinates.get(bus_stop_name)
+            if coordinate is not None:
+                x = float(coordinates[bus_stop_name][1])
+                y = float(coordinates[bus_stop_name][0])
             else:
-                coordinate = coordinates.get(node)
-                if coordinate is None:
-                    nodes[node] = {
-                        "name": node,
-                        "roteList": [rote[0]],
-                        "xCoordinate": last_x,
-                        "yCoordinate": last_y,
-                        "isCoordinateApproximate": True
-                    }
+                x = last_x
+                y = last_y
+
+            while nodes.get(bus_stop_name) is not None:
+                x_old = nodes[bus_stop_name]["xCoordinate"]
+                y_old = nodes[bus_stop_name]["yCoordinate"]
+                if are_stops_same((x_old, y_old), (x, y)):
+                    is_new_stop = False
+                    break
                 else:
-                    x = coordinates[node][1]
-                    y = coordinates[node][0]
-                    nodes[node] = {
-                        "name": node,
-                        "roteList": [rote[0]],
-                        "xCoordinate": float(x),
-                        "yCoordinate": float(y),
-                        "isCoordinateApproximate": False
-                    }
-                    last_x = float(x)
-                    last_y = float(y)
-        for ind in range(0, len(stop_times_and_sequence) - 1):
-            if nodes[stop_times_and_sequence[ind]["stopName"]] is not None and nodes[
-                stop_times_and_sequence[ind + 1]["stopName"]]:
-                start_stop = nodes[stop_times_and_sequence[ind]["stopName"]]
-                end_stop = nodes[stop_times_and_sequence[ind + 1]["stopName"]]
-                relationships.append({"startStop": start_stop["name"],
-                                      "endStop": end_stop["name"],
-                                      "name": start_stop["name"] + " -> " + end_stop["name"],
-                                      "duration": calculate_duration(stop_times_and_sequence[ind]["startTime"],
-                                                                     stop_times_and_sequence[ind + 1]["startTime"]
-                                                                     )
-                                      })
+                    bus_stop_name = increment_suffix(bus_stop_name)
+
+            if not is_new_stop:
+                bus_stop = nodes.get(bus_stop_name)
+                bus_stop["roteList"].append(rote[0])
+            else:
+                bus_stop = {
+                    "name": bus_stop_name,
+                    "roteList": [rote[0]],
+                    "xCoordinate": float(x),
+                    "yCoordinate": float(y),
+                    "isCoordinateApproximate": coordinate is None
+                }
+                nodes[bus_stop_name] = bus_stop
+
+            last_x = float(x)
+            last_y = float(y)
+
+            if previous_bus_stop is not None:
+                start_stop = previous_bus_stop
+                end_stop = bus_stop
+                if start_stop is not None and end_stop is not None:
+                    relationships.append({"startStop": start_stop["name"],
+                                          "endStop": end_stop["name"],
+                                          "name": start_stop["name"] + " -> " + end_stop["name"],
+                                          "duration": calculate_duration(previous_time_point, time_point)
+                                          })
+
+            previous_bus_stop = bus_stop
+            previous_time_point = time_point
+
         print(url)
         time.sleep(2)
     return nodes, relationships
@@ -178,3 +194,20 @@ def parse_all_city_urls():
                     cities[city_name] = city_href
                     print(city_href + ' Was parsed')
     return cities
+
+
+def are_stops_same(stop1, stop2, tolerance=0.005):
+    x1, y1 = stop1
+    x2, y2 = stop2
+    return abs(x1 - x2) < tolerance and abs(y1 - y2) < tolerance
+
+
+def increment_suffix(name):
+    if name and name[-1].isdigit():
+        index = len(name) - 1
+        while index >= 0 and name[index].isdigit():
+            index -= 1
+        number = int(name[index + 1:]) + 1
+        return f"{name[:index + 1]}{number}"
+    else:
+        return f"{name} 1"
