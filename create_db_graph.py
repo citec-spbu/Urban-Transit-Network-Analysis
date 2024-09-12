@@ -3,36 +3,30 @@ import neo4j
 import ParseData
 import pandas as pd
 
-constraint_query = "CREATE CONSTRAINT IF NOT EXISTS FOR (i:Intersection) REQUIRE i.osmid IS UNIQUE"
+road_constraint_query = "CREATE CONSTRAINT IF NOT EXISTS FOR (i:Intersection) REQUIRE i.osmid IS UNIQUE"
+road_index_query = "CREATE INDEX IF NOT EXISTS FOR ()-[r:RoadSegment]-() ON r.osmid"
 
-rel_index_query = "CREATE INDEX IF NOT EXISTS FOR ()-[r:ROAD_SEGMENT]-() ON r.osmids"
+bus_constraint_query = "CREATE CONSTRAINT IF NOT EXISTS FOR (s:Stop) REQUIRE s.name IS UNIQUE"
+bus_index_query = "CREATE INDEX IF NOT EXISTS FOR ()-[r:RouteSegment]-() ON r.name"
 
-address_constraint_query = "CREATE CONSTRAINT IF NOT EXISTS FOR (a:Address) REQUIRE a.id IS UNIQUE"
-
-point_index_query = "CREATE POINT INDEX IF NOT EXISTS FOR (i:Intersection) ON i.location"
-
-node_query = '''
+road_node_query = '''
     UNWIND $rows AS row
     WITH row WHERE row.osmid IS NOT NULL
-    MERGE (s:Stop {osmid: row.osmid})
-        SET s.location = 
-         point({latitude: row.y, longitude: row.x }),
-            s.name = row.name,
-            s.highway = row.highway,
-            s.public_transport = row.public_transport,
-            s.routes = row.routes,
-            s.tram = row.tram,
-            s.bus = row.bus,
-            s.geometry_wkt = row.geometry_wkt,
-            s.street_count = toInteger(row.street_count)
+    MERGE (i:Intersection {osmid: row.osmid})
+        SET i.location = point({latitude: row.y, longitude: row.x }),
+            i.highway = row.highway,
+            i.tram = row.tram,
+            i.bus = row.bus,
+            i.geometry_wkt = row.geometry_wkt,
+            i.street_count = toInteger(row.street_count)
     RETURN COUNT(*) as total
     '''
 
-rels_query = '''
+road_rels_query = '''
     UNWIND $rows AS path
-    MATCH (u:Stop {osmid: path.u})
-    MATCH (v:Stop {osmid: path.v})
-    MERGE (u)-[r:ROUTE_SEGMENT {osmid: path.osmid}]->(v)
+    MATCH (u:Intersection {osmid: path.u})
+    MATCH (v:Intersection {osmid: path.v})
+    MERGE (u)-[r:RoadSegment {osmid: path.osmid}]->(v)
         SET r.name = path.name,
             r.highway = path.highway,
             r.railway = path.railway,
@@ -44,24 +38,22 @@ rels_query = '''
     RETURN COUNT(*) AS total
     '''
 
-node_query_bus = '''
+bus_node_query = '''
     UNWIND $rows AS row
     WITH row WHERE row.name IS NOT NULL
     MERGE (s:Stop {name: row.name})
-        SET s.location = 
-         point({latitude: row.yCoordinate, longitude: row.xCoordinate }),
+        SET s.location = point({latitude: row.yCoordinate, longitude: row.xCoordinate }),
             s.roteList = row.roteList,
             s.isCoordinateApproximate = row.isCoordinateApproximate
     RETURN COUNT(*) AS total
 '''
 
-rels_query_bus = '''
+bus_rels_query = '''
     UNWIND $rows AS path
     MATCH (u:Stop {name: path.startStop})
     MATCH (v:Stop {name: path.endStop})
-    MERGE (u)-[r:ROUTE_SEGMENT {name: path.name}]->(v)
-        SET r.name = path.name,
-            r.duration = path.duration
+    MERGE (u)-[r:RouteSegment {name: path.name}]->(v)
+        SET r.duration = path.duration
     RETURN COUNT(*) AS total
 '''
 
@@ -70,11 +62,14 @@ NEO4J_USER = "neo4j"
 NEO4J_PASSWORD = "123456789"
 
 
-def create_constraints(tx):
-    tx.run(constraint_query)
-    tx.run(rel_index_query)
-    tx.run(address_constraint_query)
-    tx.run(point_index_query)
+def create_road_constraints(tx):
+    tx.run(road_constraint_query)
+    tx.run(road_index_query)
+
+
+def create_bus_constraints(tx):
+    tx.run(bus_constraint_query)
+    tx.run(bus_index_query)
 
 
 def insert_data(tx, query, rows, batch_size=10000):
@@ -98,18 +93,15 @@ def create_bus_graph_db(city_name):
     if nodes is None and relationships is None:
         return
 
-    new_node = list(nodes.values())
+    new_nodes = list(nodes.values())
 
     driver = neo4j.GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-
     driver.verify_connectivity()
 
     with driver.session() as session:
-        session.execute_write(create_constraints)
-
-        session.execute_write(insert_data, node_query_bus, new_node)
-
-        session.execute_write(insert_data, rels_query_bus, relationships)
+        session.execute_write(create_bus_constraints)
+        session.execute_write(insert_data, bus_node_query, new_nodes)
+        session.execute_write(insert_data, bus_rels_query, relationships)
 
 
 def create_graph_db(city_name):
@@ -122,16 +114,17 @@ def create_graph_db(city_name):
     gdf_relationships["geometry_wkt"] = gdf_relationships["geometry"].apply(lambda x: x.wkt)
 
     driver = neo4j.GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-
     driver.verify_connectivity()
 
     with driver.session() as session:
-        session.execute_write(create_constraints)
-        session.execute_write(insert_data, node_query, gdf_nodes.drop(columns=["geometry"]))
+        session.execute_write(create_road_constraints)
+        session.execute_write(insert_data, road_node_query, gdf_nodes.drop(columns=["geometry"]))
 
     with driver.session() as session:
-        session.execute_write(insert_data, rels_query, gdf_relationships.drop(columns=["geometry"]))
+        session.execute_write(insert_data, road_rels_query, gdf_relationships.drop(columns=["geometry"]))
 
 
 if __name__ == "__main__":
-    create_bus_graph_db("Керчь")
+    city = "Керчь"
+    create_graph_db(city)
+    create_bus_graph_db(city)

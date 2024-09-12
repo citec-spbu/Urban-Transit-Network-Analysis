@@ -6,9 +6,9 @@
 
 ## Необходимо:
 1. Установить зависимости `pip install -r requirements.txt`
-2. Установить neo4j desktop вместе с плагином graph-data-science
-3. Создать БД и вести имя, пароль, порт. Параметры можно посмотреть в `create-db-graph.py`
-
+2. Установить neo4j desktop вместе с плагином graph-data-science (совместимость смотрите на https://github.com/neo4j/graph-data-science/releases)
+3. В файле конфигурации `neo4j.conf` изменить параметр со следующими значениями `dbms.security.procedures.unrestricted=jwt.security.*, apoc.*, gds.*`
+4. Создать БД и вести имя, пароль, порт. Параметры можно посмотреть в `create-db-graph.py`
 
 ## Кластеризация дорожных сетей:
  1. create-db-graph.create_graph_db(name) - запустить(name - имя города), создастся отношения в бд neo4j

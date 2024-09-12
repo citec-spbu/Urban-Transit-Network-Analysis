@@ -91,8 +91,8 @@ def calculate_duration(start_stop, end_stop):
 
 
 def get_bus_graph(city_name):
-    cities_url = parse_all_city_urls()
-    city_url = cities_url.get(city_name)
+    # cities_url = parse_all_city_urls()
+    city_url = "/kerch/"
     if city_url is None:
         print('No such city in parsed data')
         return None, None
@@ -122,22 +122,24 @@ def get_bus_graph(city_name):
                         "isCoordinateApproximate": True
                     }
                 else:
+                    x = coordinates[node][1]
+                    y = coordinates[node][0]
                     nodes[node] = {
                         "name": node,
                         "roteList": [rote[0]],
-                        "xCoordinate": float(coordinates[node][0]),
-                        "yCoordinate": float(coordinates[node][1]),
+                        "xCoordinate": float(x),
+                        "yCoordinate": float(y),
                         "isCoordinateApproximate": False
                     }
-                    last_x = float(coordinates[node][0])
-                    last_y = float(coordinates[node][1])
+                    last_x = float(x)
+                    last_y = float(y)
         for ind in range(0, len(stop_times_and_sequence) - 1):
             if nodes[stop_times_and_sequence[ind]["stopName"]] is not None and nodes[
                 stop_times_and_sequence[ind + 1]["stopName"]]:
                 start_stop = nodes[stop_times_and_sequence[ind]["stopName"]]
                 end_stop = nodes[stop_times_and_sequence[ind + 1]["stopName"]]
-                relationships.append({"start_stop": start_stop["name"],
-                                      "end_stop": end_stop["name"],
+                relationships.append({"startStop": start_stop["name"],
+                                      "endStop": end_stop["name"],
                                       "name": start_stop["name"] + " -> " + end_stop["name"],
                                       "duration": calculate_duration(stop_times_and_sequence[ind]["startTime"],
                                                                      stop_times_and_sequence[ind + 1]["startTime"]

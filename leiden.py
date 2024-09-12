@@ -5,7 +5,7 @@ made_leiden_graph = '''
     $name,
     'Stop',
     {
-        ROUTE_SEGMENT: {
+        RouteSegment: {
             orientation: 'UNDIRECTED',
             properties: 'duration'
         }
