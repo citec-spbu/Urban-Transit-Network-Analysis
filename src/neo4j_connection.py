@@ -20,19 +20,30 @@ class Neo4jConnection:
         if self.__driver is not None:
             self.__driver.close()
 
-    def query(self, query, parameters=None, db=None):
-
+    # TODO: need to add decorator for run and execute_write
+    def run(self, query, parameters=None):
         assert self.__driver is not None, "Driver not initialized!"
         session = None
-        response = None
 
         try:
-            session = self.__driver.session(database=db) if db is not None else self.__driver.session()
-
-            print(list(session.run(query, parameters)))
+            session = self.__driver.session()
+            result = session.run(query, parameters)
+            print(list(result))
         except Exception as e:
             print("Query failed:", e)
         finally:
             if session is not None:
                 session.close()
-        return response
+
+    def execute_write(self, transaction_function, *args):
+        assert self.__driver is not None, "Driver not initialized!"
+        session = None
+
+        try:
+            session = self.__driver.session()
+            session.execute_write(transaction_function, *args)
+        except Exception as e:
+            print("Query failed:", e)
+        finally:
+            if session is not None:
+                session.close()
