@@ -3,6 +3,7 @@ from neo4j import GraphDatabase
 
 class Neo4jConnection:
 
+    # TODO move settings to some file or class
     def __init__(self, uri="bolt://localhost:7687", user="neo4j", pwd="123456789"):
 
         self.__uri = uri
@@ -11,7 +12,7 @@ class Neo4jConnection:
         self.__driver = None
 
         try:
-            self.__driver = GraphDatabase.driver(self.__uri, auth=(self.__user, self.__pwd))
+            self.__driver = GraphDatabase.driver(uri, auth=(user, pwd))
         except Exception as e:
             print("Failed to create the driver:", e)
 

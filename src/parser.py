@@ -1,14 +1,21 @@
+import datetime
+import json
+import math
+import os
 import re
 import time
-import math
 
 import requests
 from bs4 import BeautifulSoup
 
+cache_file = './cache/city_urls.json'
+cache_expire_days = 30
 site_url = "https://kudikina.ru"
 map_url = "/map"
-timetable_url = "/A"
+timetable_forward_url = "/A"
+timetable_backward_url = "/B"
 all_bus_route = "bus/"
+# TODO: need to update according to city coordinates
 city_avg_x_coordinate = 60.0
 city_avg_y_coordinate = 30.0
 request_pause_sec = 2
@@ -38,7 +45,12 @@ class BusGraphParser:
         return self.nodes, self.relationships
 
     def __get_city_url(self):
-        cities_url = parse_all_city_urls()
+        cities_url = load_cache(cache_file)
+        if not cities_url:
+            print("Cities url cache is expired or empty, lets fill it.")
+            cities_url = parse_all_city_urls()
+            save_cache(cache_file, cities_url)
+            print("Cities url are saved in cache.")
         city_url = cities_url.get(self.city_name)
         if city_url is None:
             print('No such city in parsed data')
@@ -70,7 +82,7 @@ class BusGraphParser:
 
     def __get_filled_coordinate(self, stop_coordinates, stop_name, last_coordinate):
         coordinate = stop_coordinates.get(stop_name)
-        if not coordinate.is_defined():
+        if coordinate is None or not coordinate.is_defined():
             coordinate = Coordinate(last_coordinate.x, last_coordinate.y, True)
         return coordinate
 
@@ -153,10 +165,22 @@ class Coordinate:
         return [self.x, self.y]
 
 
-def parse_all_city_urls():
-    # TODO add caching for city urls
-    return {"Керчь": "/kerch/"}
+def load_cache(cache_file):
+    if os.path.exists(cache_file):
+        modification_time = os.path.getmtime(cache_file)
+        current_time = datetime.datetime.now()
+        if (current_time - datetime.datetime.fromtimestamp(modification_time)).days <= cache_expire_days:
+            with open(cache_file, 'r') as file:
+                return json.load(file)
+    return {}
 
+
+def save_cache(cache_file, cache_data):
+    with open(cache_file, 'w') as file:
+        json.dump(cache_data, file)
+
+
+def parse_all_city_urls():
     url = "https://kudikina.ru/"
     response = requests.get(url)
     time.sleep(2)
@@ -187,7 +211,15 @@ def parse_all_city_urls():
 
 
 def get_timetable(route_url):
-    # TODO: only one direction, need additional
+    (timetable1, successes_parse1) = get_one_direction_timetable(route_url, timetable_forward_url)
+    (timetable2, successes_parse2) = get_one_direction_timetable(route_url, timetable_backward_url)
+    if successes_parse1 and successes_parse2:
+        return timetable1 + timetable2, True
+    else:
+        return None, False
+
+
+def get_one_direction_timetable(route_url, timetable_url):
     full_url = site_url + route_url + timetable_url
 
     response = requests.get(full_url)
